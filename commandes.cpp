@@ -1,30 +1,24 @@
 #include <Wire.h>
 
-#define SCL_PIN 3
-#define SCL_PORT PORTD
-#define SDA_PIN 2
-#define SDA_PORT PORTD
-
-#include <SoftWire.h>
-
 #include "commandes.h"
 
-const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {5, 6, A2, A3};
+const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {9, 8, 4, 7, A0};
 const ActionsServitudes::teCibleActionServitudes Commandes::bpAction[Commandes::nombreDeBoutons] = {
     ActionsServitudes::AlimAmpliTerrasse,
     ActionsServitudes::AlimAmpliVeranda,
+    ActionsServitudes::AlimAmpliSalon,
     ActionsServitudes::AlimAux1,
-    ActionsServitudes::AlimAmpliSalon
+    ActionsServitudes::AlimAux2
 };
+const uint8_t Commandes::mLedPin[ActionsServitudes::NombreCibles] = {0, A2, A3, 3, 2, 13};
+const uint8_t Commandes::mOutPin[ActionsServitudes::NombreCibles] = {12, 4, 5, 11, 6, A1};
 
 Commandes* Commandes::mInstance = nullptr;
 
 Commandes::Commandes() :
     mActionsEmpilees(new CircularBuffer<Action>(mNombreActionsEmpilables)),
-    mCommandesInternesCourantes(AucuneEntreeInterne),
-    mCommandesExternesCourantes(AucuneEntreeExterne)
-    , mI2c(0),
-    mDebug(false)
+    mDebug(false),
+    mStatus(0)
 {
     for (int i = 0; i < ActionsServitudes::NombreCibles; i++)
     {
@@ -41,24 +35,24 @@ void Commandes::gerer(bool topSeconde)
     {
         if (mBounce[i].update() == 1)
         {
-//            Serial.print(F("BP ");
-//            Serial.print(i);
+            //            Serial.print(F("BP ");
+            //            Serial.print(i);
             if (mBounce[i].read() == 0)
             {
                 // Falling edge
-//                Serial.println(F(" falling edge ");
+                //                Serial.println(F(" falling edge ");
                 traiterActionAppui(bpAction[i]);
             }
             else
             {
                 // Raising edge
-//                Serial.println(F(" raising edge ");
+                //                Serial.println(F(" raising edge ");
                 traiterActionRelache(bpAction[i]);
             }
         }
     }
-    // On gère les appuis longs
-    traiterPowerOff();
+    //    // On gère les appuis longs
+    //    traiterPowerOff();
     // On s'occupe des actions secondes
     if (topSeconde)
     {
@@ -80,31 +74,26 @@ void Commandes::gerer(bool topSeconde)
         processSerial();
         if (mDebug)
         {
-            Serial.print(F("* "));
-            Serial.print(mCommandesInternesCourantes, HEX);
-            Serial.print(F(" "));
-            Serial.print(mCommandesExternesCourantes, HEX);
-            Serial.print(F(" "));
-//            for (int i = 0; i < ActionsServitudes::NombreCibles; i++)
-//            {
-//                if (mDelaisExtinctionCourant[i] > 0)
-//                {
-//                    Serial.print(F("*D "));
-//                    Serial.print(i);
-//                    Serial.print(F(" "));
-//                    Serial.println(mDelaisExtinctionCourant[i]);
-//                }
-//            }
+            //            for (int i = 0; i < ActionsServitudes::NombreCibles; i++)
+            //            {
+            //                if (mDelaisExtinctionCourant[i] > 0)
+            //                {
+            //                    Serial.print(F("*D "));
+            //                    Serial.print(i);
+            //                    Serial.print(F(" "));
+            //                    Serial.println(mDelaisExtinctionCourant[i]);
+            //                }
+            //            }
         }
     }
     // on gére les actions empilées
     Action action;
     while (depilerAction(action))
     {
-//        Serial.print(F("Dépiler action : ");
-//        Serial.print(action.mCible, DEC);
-//        Serial.print(F(", ");
-//        Serial.println(action.mType, DEC);
+        //        Serial.print(F("Dépiler action : ");
+        //        Serial.print(action.mCible, DEC);
+        //        Serial.print(F(", ");
+        //        Serial.println(action.mType, DEC);
         traiterAction(action.mCible, action.mType);
     }
 }
@@ -116,137 +105,50 @@ void Commandes::init()
     Wire.begin(DialogDefinition::servitudesI2cId);
     Wire.onReceive(Commandes::receiveEvent);
     Wire.onRequest(Commandes::sendAnswer);
-    // Software i2c
-    if (mI2c == 0)
-    {
-        mI2c = new SoftWire();
-        mI2c->begin();
-    }
     // BP
     for (int i = 0; i < nombreDeBoutons; i++)
     {
-//        if (mBounce[i] == 0)
-//        {
-//            Bounce* bounce = new Bounce();
-            pinMode(bpPin[i], INPUT_PULLUP);
-//            mBounce[i] = new Bounce();
-            mBounce[i].attach(bpPin[i]);
-            mBounce[i].interval(5);
-//            mBounce[i]->update();
-//            Serial.print(F("BP ");
-//            Serial.print(mBounce[i] == 0);
-//            Serial.print(F("BP ");
-//            Serial.print(bounce == 0);
-//            bounce->update();
-//        }
+        //        if (mBounce[i] == 0)
+        //        {
+        //            Bounce* bounce = new Bounce();
+        pinMode(bpPin[i], INPUT_PULLUP);
+        //            mBounce[i] = new Bounce();
+        mBounce[i].attach(bpPin[i]);
+        mBounce[i].interval(5);
+        //            mBounce[i]->update();
+        //            Serial.print(F("BP ");
+        //            Serial.print(mBounce[i] == 0);
+        //            Serial.print(F("BP ");
+        //            Serial.print(bounce == 0);
+        //            bounce->update();
+        //        }
     }
-    pinMode(powerOffPin, OUTPUT);
-    digitalWrite(powerOffPin, LOW);
 
-    // Lecture et report de la configuration
-    mCommandesInternesCourantes = AucuneEntreeInterne; //Configuration::instance()->commandesInternesCourantes();
-    envoyerCommandesInternes();
-    mCommandesExternesCourantes = AucuneEntreeExterne; //Configuration::instance()->commandesExternesCourantes();
-}
-
-
-void Commandes::activerCommandeInterne(teEtatCommandeInternes commande)
-{
-    // logique inversée sur les cartes relais
-    mCommandesInternesCourantes &= ~commande;
-    envoyerCommandesInternes();
-}
-
-void Commandes::desactiverCommandeInterne(teEtatCommandeInternes commande)
-{
-    // logique inversée sur les cartes relais
-    mCommandesInternesCourantes |= commande;
-    envoyerCommandesInternes();
-}
-
-void Commandes::activerCommandeInterneLocale(teEtatCommandeInternes commande)
-{
-    mCommandesInternesCourantes |= commande;
-    envoyerCommandesInternes();
-}
-
-void Commandes::desactiverCommandeInterneLocale(teEtatCommandeInternes commande)
-{
-    mCommandesInternesCourantes &= ~commande;
-    envoyerCommandesInternes();
-}
-
-void Commandes::activerCommandeExterne(teEtatCommandeExternes commande)
-{
-    mCommandesExternesCourantes |= commande;
-    envoyerCommandesExternes();
-}
-
-void Commandes::desactiverCommandeExterne(teEtatCommandeExternes commande)
-{
-    mCommandesExternesCourantes &= ~commande;
-    envoyerCommandesExternes();
-}
-
-void Commandes::toggleCommandeInterne(teEtatCommandeInternes commande)
-{
-    // logique inversée sur les cartes relais
-    if ((mCommandesInternesCourantes & commande) != 0)
+    for (int i = 0; i < ActionsServitudes::NombreCibles; i++)
     {
-        activerCommandeInterne(commande);
+        if (mLedPin[i] != 0)
+        {
+            pinMode(mLedPin[i], OUTPUT);
+            digitalWrite(mLedPin[i],LOW);
+        }
+        if (mOutPin[i] != 0)
+        {
+            pinMode(mOutPin[i], OUTPUT);
+            digitalWrite(mOutPin[i],LOW);
+        }
     }
-    else
-    {
-        desactiverCommandeInterne(commande);
-    }
-}
 
-void Commandes::toggleCommandeInterneLocale(teEtatCommandeInternes commande)
-{
-    if ((mCommandesInternesCourantes & commande) == 0)
-    {
-        activerCommandeInterneLocale(commande);
-    }
-    else
-    {
-        desactiverCommandeInterneLocale(commande);
-    }
-}
-
-void Commandes::toggleCommandeExterne(teEtatCommandeExternes commande)
-{
-    if ((mCommandesExternesCourantes & commande) == 0)
-    {
-        activerCommandeExterne(commande);
-    }
-    else
-    {
-        desactiverCommandeExterne(commande);
-    }
-}
-
-void Commandes::envoyerCommandesInternes()
-{
-    mI2c->beginTransmission(mPcfCommandesInternes);
-    mI2c->write(mCommandesInternesCourantes);
-    mI2c->endTransmission();
-}
-
-void Commandes::envoyerCommandesExternes()
-{
-    mI2c->beginTransmission(mPcfCommandesExternes);
-    mI2c->write(mCommandesExternesCourantes);
-    mI2c->endTransmission();
-    //Configuration::instance()->setCommandesExternesCourantes(mCommandesExternesCourantes);
+    traiterAction(ActionsServitudes::AlimAmpliSalon, ActionsServitudes::On);
+    traiterAction(ActionsServitudes::AlimKodi, ActionsServitudes::On);
 }
 
 void Commandes::traiterActionAppui(ActionsServitudes::teCibleActionServitudes cible)
 {
-    if (cible == ActionsServitudes::PowerOff)
-    {
-        //mDateDernierAppuiPowerOff = millis();
-    }
-    else
+    //    if (cible == ActionsServitudes::PowerOff)
+    //    {
+    //        //mDateDernierAppuiPowerOff = millis();
+    //    }
+    //    else
     {
         traiterAction(cible, ActionsServitudes::Toggle);
     }
@@ -254,137 +156,59 @@ void Commandes::traiterActionAppui(ActionsServitudes::teCibleActionServitudes ci
 
 void Commandes::traiterActionRelache(ActionsServitudes::teCibleActionServitudes cible)
 {
-    if (cible == ActionsServitudes::PowerOff)
-    {
-        //mDateDernierAppuiPowerOff = 0;
-    }
+    //    if (cible == ActionsServitudes::PowerOff)
+    //    {
+    //        //mDateDernierAppuiPowerOff = 0;
+    //    }
 }
 
 void Commandes::traiterAction(ActionsServitudes::teCibleActionServitudes cible, ActionsServitudes::teTypeActionServitudes type)
 {
-//    Serial.print(F("Action : ");
-//    Serial.print(cible, DEC);
-//    Serial.print(F(", ");
-//    Serial.println(type, DEC);
-    teEtatCommandeExternes commandeExterne = AucuneEntreeExterne;
-    teEtatCommandeInternes commandeInterne = AucuneEntreeInterne;
+    //    Serial.print(F("Action : ");
+    //    Serial.print(cible, DEC);
+    //    Serial.print(F(", ");
+    //    Serial.println(type, DEC);
 
-    switch(cible)
+    if (mOutPin[cible] != 0)
     {
-    case ActionsServitudes::PowerOff:
-        digitalWrite(powerOffPin, HIGH);
-        break;
-    case ActionsServitudes::PowerOffReleased:
-        digitalWrite(powerOffPin, LOW);
-        break;
-    case ActionsServitudes::Out1:
-        commandeInterne = EtatOut1;
-        break;
-    case ActionsServitudes::Out2:
-        commandeInterne = EtatOut2;
-        break;
-    case ActionsServitudes::Out3:
-        commandeInterne = EtatOut3;
-        break;
-    case ActionsServitudes::Out4:
-        commandeInterne = EtatOut4;
-        break;
-    case ActionsServitudes::Out5:
-        commandeInterne = EtatOut5;
-        break;
-    case ActionsServitudes::Out6:
-        commandeInterne = EtatOut6;
-        break;
-    case ActionsServitudes::Out7:
-        commandeInterne = EtatOut7;
-        break;
-    case ActionsServitudes::Out8:
-        commandeInterne = EtatOut8;
-        break;
-    case ActionsServitudes::AlimKodi:
-        commandeExterne = EtatAlimKodi;
-        break;
-    case ActionsServitudes::AlimAmpliTerrasse:
-        commandeExterne = EtatAlimAmpliTerrasse;
-        break;
-    case ActionsServitudes::AlimAmpliVeranda:
-        commandeExterne = EtatAlimAmpliVeranda;
-        break;
-    case ActionsServitudes::AlimAux2:
-        commandeExterne = EtatAlimAux2;
-        break;
-    case ActionsServitudes::AlimAux1:
-        commandeExterne = EtatAlimAux1;
-        break;
-    case ActionsServitudes::AlimAmpliSalon:
-        commandeExterne = EtatAlimAmpliSalon;
-        break;
-    case ActionsServitudes::Aux12V_1:
-        commandeExterne = EtatAux12V_1;
-        break;
-    case ActionsServitudes::Aux12V_2:
-        commandeExterne = EtatAux12V_2;
-        break;
-    }
-
-    switch(type)
-    {
-    case ActionsServitudes::Off:
-        // Pour l'extinction, on peut avoir du délai
-        if (mDelaisExtinctionDemande[cible] > 0)
+        switch(type)
         {
-            if (mDelaisExtinctionCourant[cible] == 0)
+        case ActionsServitudes::Off:
+            // Pour l'extinction, on peut avoir du délai
+            if (mDelaisExtinctionDemande[cible] > 0)
             {
-                // début de cycle
-                mDelaisExtinctionCourant[cible] = mDelaisExtinctionDemande[cible];
+                if (mDelaisExtinctionCourant[cible] == 0)
+                {
+                    // début de cycle
+                    mDelaisExtinctionCourant[cible] = mDelaisExtinctionDemande[cible];
+                }
+                else if (mDelaisExtinctionCourant[cible] == 1)
+                {
+                    // extinction
+                    digitalWrite(mOutPin[cible], LOW);
+                }
             }
-            else if (mDelaisExtinctionCourant[cible] == 1)
+            else
             {
                 // extinction
-                if (commandeInterne != AucuneEntreeInterne)
-                {
-                    desactiverCommandeInterne(commandeInterne);
-                }
-                if (commandeExterne != AucuneEntreeExterne)
-                {
-                    desactiverCommandeExterne(commandeExterne);
-                }
+                digitalWrite(mOutPin[cible], LOW);
             }
+            break;
+        case ActionsServitudes::On:
+            mDelaisExtinctionCourant[cible] = 0;
+            // allumage
+            digitalWrite(mOutPin[cible], HIGH);
+            break;
+        case ActionsServitudes::Toggle:
+            digitalWrite(mOutPin[cible], !digitalRead(mOutPin[cible]));
+            break;
         }
-        else
+        if (mLedPin[cible] != 0)
         {
-            if (commandeInterne != AucuneEntreeInterne)
-            {
-                desactiverCommandeInterne(commandeInterne);
-            }
-            if (commandeExterne != AucuneEntreeExterne)
-            {
-                desactiverCommandeExterne(commandeExterne);
-            }
+            digitalWrite(mLedPin[cible], digitalRead(mOutPin[cible]));
         }
-        break;
-    case ActionsServitudes::On:
-        mDelaisExtinctionCourant[cible] = 0;
-        if (commandeInterne != AucuneEntreeInterne)
-        {
-            activerCommandeInterne(commandeInterne);
-        }
-        if (commandeExterne != AucuneEntreeExterne)
-        {
-            activerCommandeExterne(commandeExterne);
-        }
-        break;
-    case ActionsServitudes::Toggle:
-        if (commandeInterne != AucuneEntreeInterne)
-        {
-            toggleCommandeInterne(commandeInterne);
-        }
-        if (commandeExterne != AucuneEntreeExterne)
-        {
-            toggleCommandeExterne(commandeExterne);
-        }
-        break;
     }
+    processStatus();
 }
 
 void Commandes::empilerAction(ActionsServitudes::teCibleActionServitudes cible, ActionsServitudes::teTypeActionServitudes type)
@@ -407,8 +231,8 @@ bool Commandes::depilerAction(Action &action)
     return retour;
 }
 
-void Commandes::traiterPowerOff()
-{
+//void Commandes::traiterPowerOff()
+//{
 //    if ((mDateDernierAppuiPowerOff > 0) && (millis() - mDateDernierAppuiPowerOff > mDurreAppuiLong))
 //    {
 //        if (mStandbyMode)
@@ -425,7 +249,7 @@ void Commandes::traiterPowerOff()
 //        mDateDernierAppuiPowerOff = 0;
 //    }
 
-}
+//}
 
 // function that executes whenever data is received from master
 // this function is registered as an event, see setup()
@@ -433,19 +257,19 @@ void Commandes::receiveEvent(int howMany)
 {
     if (mInstance != nullptr)
     {
-//        Serial.print(F("receiveEvent : ");
-//        Serial.println(howMany);         // print the integer
+        //        Serial.print(F("receiveEvent : ");
+        //        Serial.println(howMany);         // print the integer
         ActionsServitudes::teCibleActionServitudes cible = ActionsServitudes::NombreCibles;
         if (Wire.available())
         {
             uint8_t c = Wire.read();
-//            Serial.println(c);         // print the integer
+            //            Serial.println(c);         // print the integer
             cible = static_cast<ActionsServitudes::teCibleActionServitudes>(c);
         }
         if (Wire.available())
         {
             uint8_t c = Wire.read();
-//            Serial.println(c);         // print the integer
+            //            Serial.println(c);         // print the integer
             ActionsServitudes::teTypeActionServitudes action = static_cast<ActionsServitudes::teTypeActionServitudes>(c);
             mInstance->empilerAction(cible, action);
         }
@@ -456,7 +280,7 @@ void Commandes::receiveEvent(int howMany)
     }
     else
     {
-//        Serial.println(F("receiveEvent : mInstance is null");
+        //        Serial.println(F("receiveEvent : mInstance is null");
     }
 }
 /*
@@ -466,12 +290,11 @@ void Commandes::sendAnswer()
 {
     if (mInstance != nullptr)
     {
-        Wire.write(mInstance->mCommandesExternesCourantes);
-        Wire.write((mInstance->mCommandesInternesCourantes & ~EtatOut7) & ~EtatOut8);
+        Wire.write(mInstance->mStatus);
     }
     else
     {
-//        Serial.println(F("sendAnswer : mInstance is null");
+        //        Serial.println(F("sendAnswer : mInstance is null");
     }
 }
 
@@ -497,6 +320,19 @@ void Commandes::processSerial()
             {
                 empilerAction(cible, action);
             }
+        }
+    }
+}
+
+void Commandes::processStatus()
+{
+    mStatus = 0;
+    for (int i = 0; i < ActionsServitudes::NombreCibles; i++)
+    {
+        uint8_t pin = mOutPin[i];
+        if (digitalRead(pin) == HIGH)
+        {
+            mStatus |= 1 << i;
         }
     }
 }

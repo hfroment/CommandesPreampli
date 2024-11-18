@@ -2,7 +2,7 @@
 
 #include "commandes.h"
 
-const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {9, 8, 4, 7, A0};
+const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {9, 8, 10, 7, A0};
 const ActionsServitudes::teCibleActionServitudes Commandes::bpAction[Commandes::nombreDeBoutons] = {
     ActionsServitudes::AlimAmpliTerrasse,
     ActionsServitudes::AlimAmpliVeranda,
@@ -129,6 +129,9 @@ void Commandes::init()
         if (mLedPin[i] != 0)
         {
             pinMode(mLedPin[i], OUTPUT);
+            digitalWrite(mLedPin[i],LOW);
+            digitalWrite(mLedPin[i],HIGH);
+            delay(200);
             digitalWrite(mLedPin[i],LOW);
         }
         if (mOutPin[i] != 0)

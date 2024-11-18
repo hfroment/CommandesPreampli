@@ -42,7 +42,7 @@ private:
     static const uint8_t nombreDeBoutons = 5;
     static const uint8_t bpPin[nombreDeBoutons];
     static const ActionsServitudes::teCibleActionServitudes bpAction[nombreDeBoutons];
-    static const uint8_t mLedPin[ActionsServitudes::NombreCibles];
+    static const uint8_t mLedPin[nombreDeBoutons];
     static const uint8_t mOutPin[ActionsServitudes::NombreCibles];
 
     void traiterActionAppui(ActionsServitudes::teCibleActionServitudes cible);

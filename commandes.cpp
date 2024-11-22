@@ -10,7 +10,7 @@ const ActionsServitudes::teCibleActionServitudes Commandes::bpAction[Commandes::
     ActionsServitudes::AlimAux1,
     ActionsServitudes::AlimAux2
 };
-const uint8_t Commandes::mLedPin[ActionsServitudes::NombreCibles] = {0, A2, A3, 3, 2, 13};
+const uint8_t Commandes::mLedPin[ActionsServitudes::NombreCibles] = {0, A2, A3, 13, 2, 3};
 const uint8_t Commandes::mOutPin[ActionsServitudes::NombreCibles] = {12, 4, 5, 11, 6, A1};
 
 Commandes* Commandes::mInstance = nullptr;

@@ -31,13 +31,13 @@ bool Servitudes::gerer()
     bool topSeconde = false;
     if (mCompteurIt != mCompteurItPrecedent)
     {
-        digitalWrite(ledPin, 1);
+        //digitalWrite(ledPin, 1);
         mCompteurItPrecedent = mCompteurIt;
 //        if (mCommandes.standbyMode())
-        {
-            delay(5);
-            digitalWrite(ledPin, 0);
-        }
+        //{
+            //delay(5);
+            //digitalWrite(ledPin, 0);
+        //}
         topSeconde = true;
     }
 

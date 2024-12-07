@@ -2,16 +2,16 @@
 
 #include "commandes.h"
 
-const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {9, 8, 10, 7, A0};
+const uint8_t Commandes::bpPin[Commandes::nombreDeBoutons] = {10, 9, 8, 7, A0};
 const ActionsServitudes::teCibleActionServitudes Commandes::bpAction[Commandes::nombreDeBoutons] = {
+    ActionsServitudes::AlimAmpliSalon,
     ActionsServitudes::AlimAmpliTerrasse,
     ActionsServitudes::AlimAmpliVeranda,
-    ActionsServitudes::AlimAmpliSalon,
     ActionsServitudes::AlimAux1,
     ActionsServitudes::AlimAux2
 };
-const uint8_t Commandes::mLedPin[ActionsServitudes::NombreCibles] = {0, A2, A3, 13, 2, 3};
-const uint8_t Commandes::mOutPin[ActionsServitudes::NombreCibles] = {12, 4, 5, 11, 6, A1};
+const uint8_t Commandes::mLedPin[ActionsServitudes::NombreCibles] = {0, 13, A2, A3, 2, 3};
+const uint8_t Commandes::mOutPin[ActionsServitudes::NombreCibles] = {12, 11, 4, 5, 6, A1};
 
 Commandes* Commandes::mInstance = nullptr;
 
